@@ -153,3 +153,102 @@ Part 3 loads the two checkpoints.
   0.89. Hold against pass sits near chance, which is expected, because the two
   states look almost identical one frame apart. The simulator handles the
   timing with a release gate instead of asking the model to decide it.
+
+
+# Part 3 — Simulator and evidence (Stage 8)
+
+Owner of the thing people actually watch: the match, the ball physics, the live
+visualisations, the statistics, and the ablation study that proves the learned
+models are the ones playing.
+
+**This part needs no data**, only the two trained checkpoints from Part 2:
+`output/training/metrica/style_model.pt` and `output/kick/kick_model.pt` (plus
+`kick_meta.json` beside it). Checkpoints live under `output/`, which is not
+tracked by git, so copy them in or run Part 2 once. After that a match starts
+immediately, with no training and no raw tracking data.
+
+## Install
+
+```
+pip install numpy torch pygame matplotlib
+```
+
+## Run a match
+
+From the `src` directory.
+
+```bash
+python -m stage8_sim.simulate_gsr
+```
+
+A menu appears: **L** watches a live match with the tactical sliders, **S**
+simulates a full 90 minutes quickly and then replays the goals.
+
+Keys during a live match: `1`-`4` select a knob, `UP`/`DOWN` adjust it (or drag
+the sliders), `G` ghosts, `N` names, `C` carrier ring, `SPACE` pause, `ESC`
+quit.
+
+## Run the evidence suite
+
+```bash
+python -m stage8_sim.ablation
+```
+
+Six configurations, ten simulated minutes each, same seed. It writes the
+comparison figures and a summary table to `output/telemetry/`.
+
+| config | pass/min | shots/10min | goals | int/10min | player m/s | Argentina possession |
+|---|---|---|---|---|---|---|
+| full hybrid | 25.6 | 5.0 | 1 | 14.0 | 2.53 | 45% |
+| random-kick (KickNet off) | 8.2 | 95.0 | 41 | 36.0 | 3.81 | 53% |
+| frozen-players (StyleNet off) | 26.7 | 8.0 | 1 | 8.0 | 1.06 | 59% |
+| no-structure | 0.5 | 1.0 | 1 | 0.0 | 0.13 | 2% |
+| high-press knob | 26.4 | 3.0 | 2 | 14.0 | 2.66 | 75% |
+| high-tempo knob | 25.9 | 1.0 | 1 | 9.0 | 2.30 | 50% |
+
+How to read it. Replacing KickNet with random decisions gives 95 shots and 41
+goals in ten minutes while passing collapses, so the sensible football is
+coming from that model. Freezing StyleNet drops player speed from 2.53 to 1.06
+m/s and shrinks the pitch, so the movement is coming from that one. Pushing the
+press knob alone moves possession from 45% to 75%, which is the conditioning
+working end to end. And removing the structure layer kills the game entirely,
+which is the honest part: that layer is engineered, not learned, and the
+figures say so.
+
+## What is in here
+
+| file | what it does |
+|---|---|
+| `src/stage8_sim/ball_engine.py` | the ball's state machine: carried, flight, loose, restart, goal. Interceptions, tackles, saves, throw-in style restarts |
+| `src/stage8_sim/simulate_gsr.py` | the match itself: formations, kick-offs, halves, the structure layer, all the panels, the fast 90-minute mode and the goal replay viewer |
+| `src/stage8_sim/telemetry.py` | the live box score and the per-tick record of what each model was doing, plus the figures |
+| `src/stage8_sim/ablation.py` | the six-configuration runner above |
+| `src/stage_style/knob_sweep.py` | drives one knob at a time and measures the physical response, to check the knobs are causal |
+| `src/stage7_style/` | the three model files needed to run inference (architecture only, no training) |
+
+## Live panels, and what each one shows
+
+- **KickNet overlay** — the carrier's receiver probabilities as arrows, plus the
+  live hold / pass / shot bars. The model is consulted about five times a
+  second.
+- **StyleNet ghosts** — the pure model free-rolling eight steps ahead with the
+  ball engine and the structure layer switched off. That is the network's own
+  motion intent, unaided.
+- **FiLM authority meters** — rerun the model with each knob nudged up by 0.25
+  and plot how much the motion changes. A live measurement of how much
+  authority each dial has.
+- **Attention panel** — the last transformer block's spatial attention, shown
+  as deviation from uniform, with player names on both axes. Rows look at
+  columns. Red means more attention than uniform, blue means less. Raw
+  attention is close to uniform, so the deviation is the signal; the true
+  magnitude is printed as `max |dev|`. Raise the tempo knob and the own-team
+  block turns blue, because the attention mass moves to the opponents, which is
+  what direct play looks like.
+
+## Statistics
+
+Possession, passes, completion percentage, shots, goals, interceptions,
+tackles and saves for both teams, counted live and printed at full time.
+Possession follows the carrier, and falls to the last team that touched the
+ball while it is in flight or dead. Pass completion is worked out from what
+happens to the flight, not from the event text.
