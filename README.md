@@ -1,4 +1,4 @@
-# Part 1 — Data pipeline (Stages 0, 5, 6)
+# Part 1 — Data pipeline 
 
 Owner of everything between the raw Metrica files and the tensors the models
 train on. Nothing here uses a neural network; it is parsing, measurement and
@@ -66,7 +66,7 @@ Part 2 trains on the last two.
 
 
 
-# Part 2 — Learned models (Stage 7)
+# Part 2 — Learned models 
 
 Owner of both neural networks: the architectures, the training loops, the
 losses. This is the pattern-recognition core of the project.
@@ -155,7 +155,7 @@ Part 3 loads the two checkpoints.
   timing with a release gate instead of asking the model to decide it.
 
 
-# Part 3 — Simulator and evidence (Stage 8)
+# Part 3 — Simulator and evidence 
 
 Owner of the thing people actually watch: the match, the ball physics, the live
 visualisations, the statistics, and the ablation study that proves the learned
